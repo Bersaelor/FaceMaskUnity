@@ -6,7 +6,6 @@ Properties
      _Color ("Color", Color) = (0.5, 0.5, 0.5, 0.5)
      _Fade ("Fade", Range(0,1)) = 0
 
-     _ColorCorrection ("ColorCorrection", Range(0,1)) = 0
      _LUTTex ("LUTTex", 2D) = "black" {}
  }
  
@@ -37,7 +36,6 @@ Properties
              float4 _Color;
              float _Fade;
 
-             float _ColorCorrection;
              sampler2D _LUTTex;
 
              struct appdata_t
@@ -71,18 +69,6 @@ Properties
              {
                  half4 base = tex2D(_MainTex, i.uv1);
                  half4 mask = tex2D (_MaskTex, i.uv2);
-
-                 if (_ColorCorrection > 0)
-                 {
-                    float w = base.w;
-                    float3 lut_base;
-
-                    lut_base.r = tex2D(_LUTTex, float2(base.r, 0)).r;
-                    lut_base.g = tex2D(_LUTTex, float2(base.g, 0)).g;
-                    lut_base.b = tex2D(_LUTTex, float2(base.b, 0)).b;
-
-                    base = half4(lerp(base.rgb, lut_base.rgb, _ColorCorrection), w);
-                 }
 
                  base = base * (_Color * 2.0f);
 

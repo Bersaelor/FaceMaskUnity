@@ -70,16 +70,6 @@ namespace FaceMaskExample
         public Toggle enableNoiseFilterToggle;
 
         /// <summary>
-        /// Determines if enables color correction.
-        /// </summary>
-        public bool enableColorCorrection = true;
-
-        /// <summary>
-        /// The enable color correction toggle.
-        /// </summary>
-        public Toggle enableColorCorrectionToggle;
-
-        /// <summary>
         /// Determines if filters non frontal faces.
         /// </summary>
         public bool filterNonFrontalFaces = false;
@@ -156,11 +146,6 @@ namespace FaceMaskExample
         Dictionary<int, OFPointsFilter> opticalFlowFilterDict;
 
         /// <summary>
-        /// The face mask color corrector.
-        /// </summary>
-        FaceMaskColorCorrector faceMaskColorCorrector;
-
-        /// <summary>
         /// The frontal face checker.
         /// </summary>
         FrontalFaceChecker frontalFaceChecker;
@@ -174,11 +159,6 @@ namespace FaceMaskExample
         /// The Shader.PropertyToID for "_Fade".
         /// </summary>
         int shader_FadeID;
-
-        /// <summary>
-        /// The Shader.PropertyToID for "_ColorCorrection".
-        /// </summary>
-        int shader_ColorCorrectionID;
 
         /// <summary>
         /// The Shader.PropertyToID for "_LUTTex".
@@ -288,7 +268,6 @@ namespace FaceMaskExample
 
 
             shader_FadeID = Shader.PropertyToID("_Fade");
-            shader_ColorCorrectionID = Shader.PropertyToID("_ColorCorrection");
             shader_LUTTexID = Shader.PropertyToID("_LUTTex");
 
             rectangleTracker = new RectangleTracker();
@@ -298,14 +277,12 @@ namespace FaceMaskExample
             lowPassFilterDict = new Dictionary<int, LowPassPointsFilter>();
             opticalFlowFilterDict = new Dictionary<int, OFPointsFilter>();
 
-            faceMaskColorCorrector = new FaceMaskColorCorrector();
 
             webCamTextureToMatHelper.Initialize();
 
             displayFaceRectsToggle.isOn = displayFaceRects;
             useDlibFaceDetecterToggle.isOn = useDlibFaceDetecter;
             enableNoiseFilterToggle.isOn = enableNoiseFilter;
-            enableColorCorrectionToggle.isOn = enableColorCorrection;
             filterNonFrontalFacesToggle.isOn = filterNonFrontalFaces;
             displayDebugFacePointsToggle.isOn = displayDebugFacePoints;
         }
@@ -392,8 +369,6 @@ namespace FaceMaskExample
             }
             opticalFlowFilterDict.Clear();
 
-            faceMaskColorCorrector.Reset();
-
             frontalFaceChecker.Dispose();
         }
 
@@ -478,19 +453,6 @@ namespace FaceMaskExample
                     }
                 }
 
-                // create LUT texture.
-                foreach (var openCVRect in trackedRects)
-                {
-                    if (openCVRect.state == TrackedState.NEW)
-                    {
-                        faceMaskColorCorrector.CreateLUTTex(openCVRect.id);
-                    }
-                    else if (openCVRect.state == TrackedState.DELETED)
-                    {
-                        faceMaskColorCorrector.DeleteLUTTex(openCVRect.id);
-                    }
-                }
-
                 // detect face landmark points.
                 OpenCVForUnityUtils.SetImage(faceLandmarkDetector, rgbaMat);
                 List<List<Vector2>> landmarkPoints = new List<List<Vector2>>();
@@ -539,11 +501,6 @@ namespace FaceMaskExample
                         if (tr.state < TrackedState.DELETED)
                         {
                             MaskFace(meshOverlay, tr, landmarkPoints[i], faceLandmarkPointsInMask, maskImageWidth, maskImageHeight);
-
-                            if (enableColorCorrection)
-                            {
-                                CorrectFaceMaskColor(tr.id, faceMaskMat, rgbaMat, faceLandmarkPointsInMask, landmarkPoints[i]);
-                            }
                         }
                         else if (tr.state == TrackedState.DELETED)
                         {
@@ -570,11 +527,6 @@ namespace FaceMaskExample
                         if (tr.state < TrackedState.DELETED)
                         {
                             MaskFace(meshOverlay, tr, landmarkPoints[i], landmarkPoints[0], maskImageWidth, maskImageHeight);
-
-                            if (enableColorCorrection)
-                            {
-                                CorrectFaceMaskColor(tr.id, rgbaMat, rgbaMat, landmarkPoints[0], landmarkPoints[i]);
-                            }
                         }
                         else if (tr.state == TrackedState.DELETED)
                         {
@@ -693,27 +645,11 @@ namespace FaceMaskExample
                 tm.sharedMaterial.SetFloat(shader_FadeID, 0.3f);
             }
 
-            if (enableColorCorrection)
-            {
-                tm.sharedMaterial.SetFloat(shader_ColorCorrectionID, 1f);
-            }
-            else
-            {
-                tm.sharedMaterial.SetFloat(shader_ColorCorrectionID, 0f);
-            }
-
             // filter non frontal faces.
             if (filterNonFrontalFaces && frontalFaceChecker.GetFrontalFaceRate(landmarkPoints) < frontalFaceRateLowerLimit)
             {
                 tm.sharedMaterial.SetFloat(shader_FadeID, 1f);
             }
-        }
-
-        private void CorrectFaceMaskColor(int id, Mat src, Mat dst, List<Vector2> src_landmarkPoints, List<Vector2> dst_landmarkPoints)
-        {
-            Texture2D LUTTex = faceMaskColorCorrector.UpdateLUTTex(id, src, dst, src_landmarkPoints, dst_landmarkPoints);
-            TrackedMesh tm = meshOverlay.GetObjectById(id);
-            tm.sharedMaterial.SetTexture(shader_LUTTexID, LUTTex);
         }
 
         /// <summary>
@@ -743,9 +679,6 @@ namespace FaceMaskExample
                 opticalFlowFilterDict[key].Dispose();
             }
             opticalFlowFilterDict.Clear();
-
-            if (faceMaskColorCorrector != null)
-                faceMaskColorCorrector.Dispose();
 
 #if UNITY_WEBGL
             if (getFilePath_Coroutine != null) {
@@ -822,21 +755,6 @@ namespace FaceMaskExample
             else
             {
                 enableNoiseFilter = false;
-            }
-        }
-
-        /// <summary>
-        /// Raises the enable color correction toggle value changed event.
-        /// </summary>
-        public void OnEnableColorCorrectionToggleValueChanged()
-        {
-            if (enableColorCorrectionToggle.isOn)
-            {
-                enableColorCorrection = true;
-            }
-            else
-            {
-                enableColorCorrection = false;
             }
         }
 
@@ -946,61 +864,6 @@ namespace FaceMaskExample
                 RemoveFaceMask();
                 Debug.LogError("A face could not be detected from the input image.");
             }
-
-            enableColorCorrectionToggle.isOn = maskData.enableColorCorrection;
-        }
-
-        /// <summary>
-        /// Raises the scan face mask button click event.
-        /// </summary>
-        public void OnScanFaceMaskButtonClick()
-        {
-            RemoveFaceMask();
-
-            // Capture webcam frame.
-            if (webCamTextureToMatHelper.IsPlaying())
-            {
-
-                Mat rgbaMat = webCamTextureToMatHelper.GetMat();
-
-                faceRectInMask = DetectFace(rgbaMat);
-                if (faceRectInMask.width == 0 && faceRectInMask.height == 0)
-                {
-                    Debug.Log("A face could not be detected from the input image.");
-                    return;
-                }
-
-                Rect rect = new Rect((int)faceRectInMask.x, (int)faceRectInMask.y, (int)faceRectInMask.width, (int)faceRectInMask.height);
-                rect.inflate(rect.x / 5, rect.y / 5);
-                rect = rect.intersect(new Rect(0, 0, rgbaMat.width(), rgbaMat.height()));
-
-                faceMaskTexture = new Texture2D(rect.width, rect.height, TextureFormat.RGBA32, false);
-                faceMaskMat = new Mat(rgbaMat, rect).clone();
-                OpenCVForUnity.UnityUtils.Utils.matToTexture2D(faceMaskMat, faceMaskTexture);
-                Debug.Log("faceMaskMat ToString " + faceMaskMat.ToString());
-
-                faceRectInMask = DetectFace(faceMaskMat);
-                faceLandmarkPointsInMask = DetectFaceLandmarkPoints(faceMaskMat, faceRectInMask);
-
-                if (extendForehead)
-                {
-                    AddForeheadPoints(faceLandmarkPointsInMask);
-                }
-
-                if (faceRectInMask.width == 0 && faceRectInMask.height == 0)
-                {
-                    RemoveFaceMask();
-                    Debug.Log("A face could not be detected from the input image.");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Raises the remove face mask button click event.
-        /// </summary>
-        public void OnRemoveFaceMaskButtonClick()
-        {
-            RemoveFaceMask();
         }
 
         private void RemoveFaceMask()
