@@ -241,7 +241,7 @@ namespace FaceMaskExample
             StartCoroutine (getFilePath_Coroutine);
 #else
             haarcascade_frontalface_alt_xml_filepath = OpenCVForUnity.UnityUtils.Utils.getFilePath("haarcascade_frontalface_alt.xml");
-            sp_human_face_68_dat_filepath = DlibFaceLandmarkDetector.UnityUtils.Utils.getFilePath("sp_human_face_68.dat");
+            sp_human_face_68_dat_filepath = DlibFaceLandmarkDetector.UnityUtils.Utils.getFilePath("sp_human_face_68_for_mobile.dat");
             Run();
 #endif
         }
@@ -254,7 +254,7 @@ namespace FaceMaskExample
             });
             yield return getFilePathAsync_0_Coroutine;
 
-            var getFilePathAsync_1_Coroutine = DlibFaceLandmarkDetector.UnityUtils.Utils.getFilePathAsync ("sp_human_face_68.dat", (result) => {
+            var getFilePathAsync_1_Coroutine = DlibFaceLandmarkDetector.UnityUtils.Utils.getFilePathAsync ("sp_human_face_68_for_mobile.dat", (result) => {
                 sp_human_face_68_dat_filepath = result;
             });
             yield return getFilePathAsync_1_Coroutine;
